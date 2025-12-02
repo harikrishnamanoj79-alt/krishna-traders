@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Krishna Traders ERP - Final</title>
+    <title>Krishna Traders ERP - Persistent V9</title>
     <style>
         :root {
             --primary: #2e7d32; /* Green */
@@ -103,6 +103,9 @@
         .btn-danger { background: var(--accent); }
         .btn-print { background: #455a64; }
         .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+        
+        /* Reset Data Button */
+        .btn-reset { background: #cfd8dc; color: #333; margin-top: 20px; width: 100%; }
 
         /* --- TABLES --- */
         .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border: 1px solid #eee; }
@@ -158,7 +161,6 @@
                 padding: 0;
             }
 
-            /* --- HEADER LAYOUT MODIFIED FOR LOGO LEFT --- */
             .print-header-container {
                 display: flex;
                 align-items: center;
@@ -166,20 +168,9 @@
                 padding-bottom: 20px;
                 margin-bottom: 30px;
             }
-            .print-logo-container {
-                width: 120px;
-                flex-shrink: 0;
-            }
-            .print-logo {
-                width: 100%;
-                height: auto;
-                object-fit: contain;
-            }
-            .print-text-container {
-                flex: 1;
-                text-align: center;
-                padding-left: 20px;
-            }
+            .print-logo-container { width: 120px; flex-shrink: 0; }
+            .print-logo { width: 100%; height: auto; object-fit: contain; }
+            .print-text-container { flex: 1; text-align: center; padding-left: 20px; }
             .print-text-container h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
             .print-text-container p { margin: 5px 0; font-size: 14px; }
             .print-text-container h2 { margin: 15px 0 0 0; font-size: 18px; text-decoration: underline; }
@@ -198,7 +189,7 @@
 
     <div class="sidebar" id="sidebar">
         <h2>KRISHNA TRADERS</h2>
-        <div class="company-sub">Koothattukulam | ERP V8.1</div>
+        <div class="company-sub">Koothattukulam | ERP V9</div>
         <nav>
             <button class="nav-btn active" onclick="nav('dashboard')">📊 Dashboard</button>
             <button class="nav-btn hr-btn" onclick="nav('hr')">👨‍✈️ Fleet & HR</button>
@@ -209,6 +200,7 @@
             <button class="nav-btn" onclick="nav('settlement')">💰 Settlement</button>
             <button class="nav-btn" onclick="nav('reports')">📈 Reports</button>
         </nav>
+        <button class="btn btn-reset" onclick="hardReset()">⚠️ Reset All Data</button>
     </div>
 
     <div class="main-content">
@@ -419,24 +411,67 @@
 
     <script>
         // --- GLOBAL STATE ---
-        let vehicles = [{ id: 1, reg: 'KL-07-BW-1234', model: 'Tata Ace' }];
-        let drivers = [{ id: 1, name: 'Ramesh', rate: 800, daysPresent: 0 }];
-        let items = [{ id: 1, cat: 'Beverage', name: 'Coca Cola 2L', packSize: 9, totalPieces: 100, priceCase: 900 }];
+        // Initial Dummy Data (Only used if nothing is saved in localStorage)
+        const defaultVehicles = [{ id: 1, reg: 'KL-07-BW-1234', model: 'Tata Ace' }];
+        const defaultDrivers = [{ id: 1, name: 'Ramesh', rate: 800, daysPresent: 0 }];
+        const defaultItems = [{ id: 1, cat: 'Beverage', name: 'Coca Cola 2L', packSize: 9, totalPieces: 100, priceCase: 900 }];
+
+        let vehicles = [];
+        let drivers = [];
+        let items = [];
         let expenses = [];
         let salesHistory = [];
         let vehicleManifests = {}; 
         
-        // Track the currently selected vehicle so it doesn't reset on refresh
         let currentVehicleSelection = "";
+
+        // --- LOCAL STORAGE FUNCTIONS ---
+        function saveData() {
+            const data = {
+                vehicles, drivers, items, expenses, salesHistory, vehicleManifests
+            };
+            localStorage.setItem('krishnaErpData', JSON.stringify(data));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('krishnaErpData');
+            if(saved) {
+                const parsed = JSON.parse(saved);
+                vehicles = parsed.vehicles || [];
+                drivers = parsed.drivers || [];
+                items = parsed.items || [];
+                expenses = parsed.expenses || [];
+                salesHistory = parsed.salesHistory || [];
+                vehicleManifests = parsed.vehicleManifests || {};
+            } else {
+                // First time load
+                vehicles = [...defaultVehicles];
+                drivers = [...defaultDrivers];
+                items = [...defaultItems];
+                expenses = [];
+                salesHistory = [];
+                vehicleManifests = {};
+            }
+        }
+
+        function hardReset() {
+            if(confirm("WARNING: This will delete ALL saved data (Vehicles, Sales, Stock). Are you sure?")) {
+                localStorage.removeItem('krishnaErpData');
+                location.reload();
+            }
+        }
 
         // --- INIT ---
         function init() {
+            loadData(); // LOAD FROM STORAGE
+            
+            // Ensure manifest arrays exist
             vehicles.forEach(v => {
                 if(!vehicleManifests[v.reg]) vehicleManifests[v.reg] = [];
             });
+            
             document.getElementById('today-date').innerText = new Date().toLocaleDateString();
             
-            // Set default selection if exists
             if(vehicles.length > 0) currentVehicleSelection = vehicles[0].reg;
             
             refreshAll();
@@ -471,8 +506,9 @@
             renderInventory();
             renderExpenses();
             renderReports();
-            renderManifest(); // Renders based on currentVehicleSelection
+            renderManifest();
             updateDashboard();
+            saveData(); // AUTO SAVE ON EVERY REFRESH CALL
         }
 
         // --- DROPDOWNS & STATE MANAGEMENT ---
@@ -482,13 +518,11 @@
         }
 
         function renderDropdowns() {
-            // Load Vehicle Select
             let vOptions = vehicles.map(v => `<option value="${v.reg}">${v.reg}</option>`).join('');
             
             const loadSelect = document.getElementById('load-vehicle-select');
             loadSelect.innerHTML = vOptions;
             
-            // Restore selection
             if(currentVehicleSelection) {
                 loadSelect.value = currentVehicleSelection;
             } else if(vehicles.length > 0) {
@@ -496,7 +530,6 @@
                 loadSelect.value = currentVehicleSelection;
             }
 
-            // Other selects
             document.getElementById('settle-vehicle-select').innerHTML = '<option value="">Select Vehicle</option>' + vOptions;
             document.getElementById('exp-veh-select').innerHTML = '<option value="-">None</option>' + vOptions;
             
@@ -518,7 +551,12 @@
                 refreshAll();
             }
         }
-        function deleteVehicle(id) { vehicles = vehicles.filter(v => v.id !== id); refreshAll(); }
+        function deleteVehicle(id) { 
+            if(confirm("Delete this vehicle?")) {
+                vehicles = vehicles.filter(v => v.id !== id); 
+                refreshAll(); 
+            }
+        }
 
         function addDriver() {
             let name = document.getElementById('drv-name').value;
@@ -530,7 +568,12 @@
                 refreshAll();
             }
         }
-        function deleteDriver(id) { drivers = drivers.filter(d => d.id !== id); refreshAll(); }
+        function deleteDriver(id) { 
+            if(confirm("Delete this driver?")) {
+                drivers = drivers.filter(d => d.id !== id); 
+                refreshAll(); 
+            }
+        }
         
         function toggleAttendance(id) {
             let d = drivers.find(x => x.id === id);
@@ -547,7 +590,6 @@
                 `<tr><td>${d.name}</td><td>₹${d.rate}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDriver(${d.id})">X</button></td></tr>`
             ).join('');
 
-            // Attendance Buttons
             document.getElementById('att-body').innerHTML = drivers.map(d => `
                 <tr>
                     <td>${d.name}</td>
@@ -567,7 +609,6 @@
         }
 
         function loadToVehicle() {
-            // Use the current selection state, not just DOM value, to be safe
             let veh = document.getElementById('load-vehicle-select').value;
             if(!veh) return;
 
@@ -581,7 +622,6 @@
             if(req === 0) return;
             if(req > item.totalPieces) { alert("Low Stock"); return; }
             
-            // Deduct
             item.totalPieces -= req;
             
             if(!vehicleManifests[veh]) vehicleManifests[veh] = [];
@@ -590,7 +630,6 @@
             if(existing) existing.totalPieces += req;
             else vehicleManifests[veh].push({...item, totalPieces: req});
             
-            // Update Inputs
             document.getElementById('load-case').value = '';
             document.getElementById('load-piece').value = '';
             
@@ -696,7 +735,7 @@
             document.getElementById('p-veh').innerText = veh;
             document.getElementById('p-driver').innerText = drv;
             document.getElementById('p-date').innerText = new Date().toLocaleString();
-            document.getElementById('p-id').innerText = Math.floor(Math.random() * 10000); // Random Trip ID
+            document.getElementById('p-id').innerText = Math.floor(Math.random() * 10000);
 
             let list = vehicleManifests[veh];
             document.getElementById('p-tbody').innerHTML = list.map(i => `
@@ -710,7 +749,6 @@
             window.print();
         }
 
-        // START
         init();
     </script>
 </body>
