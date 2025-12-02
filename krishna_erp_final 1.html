@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Krishna Traders ERP - Final</title>
+    <style>
+        :root {
+            --primary: #2e7d32; /* Green */
+            --secondary: #00695c;
+            --accent: #d84315; /* Orange */
+            --purchase: #1565c0; /* Blue */
+            --expense: #c62828; /* Red */
+            --hr: #6a1b9a; /* Purple */
+            --dark: #263238;
+            --light: #f1f8e9;
+            --white: #ffffff;
+            --border: #ddd;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; 
+            background: #eceff1; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        
+        /* --- SIDEBAR --- */
+        .sidebar { 
+            width: 260px; 
+            background: var(--dark); 
+            color: #fff; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 20px; 
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .sidebar h2 { font-size: 1.2rem; margin-bottom: 5px; color: #80cbc4; }
+        .sidebar .company-sub { font-size: 0.8rem; opacity: 0.7; margin-bottom: 20px; border-bottom: 1px solid #455a64; padding-bottom: 15px; }
+        
+        .nav-btn {
+            background: none; border: none; color: #b0bec5; text-align: left;
+            padding: 15px 10px; cursor: pointer; font-size: 1rem; margin-bottom: 2px;
+            border-radius: 4px; transition: 0.2s;
+            display: flex; align-items: center;
+        }
+        .nav-btn:hover, .nav-btn.active { background: #37474f; color: #fff; border-left: 4px solid var(--primary); font-weight: bold; }
+        .nav-btn.hr-btn.active { border-left-color: var(--hr); }
+        .nav-btn.expense-btn.active { border-left-color: var(--expense); }
+
+        /* --- OVERLAY --- */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 999; display: none;
+        }
+        .overlay.active { display: block; }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { 
+            flex: 1; display: flex; flex-direction: column; height: 100%; position: relative;
+        }
+
+        .top-bar {
+            background: var(--primary); color: white; padding: 10px 15px;
+            display: flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 900;
+        }
+        .menu-toggle { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; margin-right: 15px; }
+        .page-title { font-size: 1.1rem; font-weight: bold; }
+
+        .scroll-area { flex: 1; padding: 15px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .section { display: none; animation: fadeIn 0.3s; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- CARDS & PANELS --- */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; }
+        .stat-card h3 { margin: 0 0 5px 0; font-size: 1.5rem; color: var(--secondary); }
+        .stat-card p { margin: 0; font-size: 0.85rem; color: #666; }
+        
+        .panel { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .panel h3 { margin-top: 0; border-bottom: 2px solid var(--light); padding-bottom: 10px; font-size: 1.1rem; }
+
+        /* --- FORMS --- */
+        .input-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: flex-end; }
+        .input-group { display: flex; flex-direction: column; flex: 1; min-width: 140px; }
+        .input-group label { font-size: 0.8rem; font-weight: bold; color: #555; margin-bottom: 5px; }
+        input, select { padding: 12px; border: 1px solid var(--border); border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        
+        button.btn { padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; color: #fff; font-weight: bold; font-size: 0.95rem; width: auto; }
+        .btn-full { width: 100%; margin-top: 5px; } 
+        
+        .btn-primary { background: var(--primary); }
+        .btn-purchase { background: var(--purchase); }
+        .btn-expense { background: var(--expense); }
+        .btn-hr { background: var(--hr); }
+        .btn-danger { background: var(--accent); }
+        .btn-print { background: #455a64; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+        /* --- TABLES --- */
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; border: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; min-width: 500px; }
+        th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; font-size: 0.9rem; vertical-align: middle; }
+        th { background: #f5f5f5; color: #333; white-space: nowrap; }
+        
+        .att-btn { 
+            padding: 8px 16px; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            border: 1px solid #ccc; 
+            background: #eee; 
+            display: inline-block; 
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            min-width: 100px;
+        }
+        .att-btn:hover { opacity: 0.9; }
+        .att-btn.present { background: #c8e6c9; color: #1b5e20; border-color: #a5d6a7; }
+        .att-btn.absent { background: #ffcdd2; color: #b71c1c; border-color: #ef9a9a; }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; top: 0; left: 0; transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); }
+            .menu-toggle { display: block; }
+            .input-group { min-width: 100%; }
+            .input-row { flex-direction: column; gap: 15px; }
+            .btn { width: 100%; margin-top: 5px; }
+            @media print { .sidebar, .top-bar { display: none; } .main-content { margin: 0; } .scroll-area { overflow: visible; } }
+        }
+        
+        @media (min-width: 769px) {
+            .menu-toggle { display: none; }
+            .sidebar { position: relative; transform: none; }
+            .overlay { display: none !important; }
+        }
+
+        /* --- PRINT AREA (A4) --- */
+        #print-area { display: none; }
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { 
+                display: block; 
+                position: absolute; 
+                top: 0; 
+                left: 0; 
+                width: 100%; 
+                padding: 0;
+            }
+
+            /* --- HEADER LAYOUT MODIFIED FOR LOGO LEFT --- */
+            .print-header-container {
+                display: flex;
+                align-items: center;
+                border-bottom: 2px solid #000;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }
+            .print-logo-container {
+                width: 120px;
+                flex-shrink: 0;
+            }
+            .print-logo {
+                width: 100%;
+                height: auto;
+                object-fit: contain;
+            }
+            .print-text-container {
+                flex: 1;
+                text-align: center;
+                padding-left: 20px;
+            }
+            .print-text-container h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
+            .print-text-container p { margin: 5px 0; font-size: 14px; }
+            .print-text-container h2 { margin: 15px 0 0 0; font-size: 18px; text-decoration: underline; }
+
+            .print-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; }
+            table { width: 100%; border: 1px solid #000; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #000; padding: 8px; }
+            th { background-color: #eee !important; -webkit-print-color-adjust: exact; }
+            .footer-sig { margin-top: 50px; display: flex; justify-content: space-between; padding-top: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" onclick="toggleSidebar()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <h2>KRISHNA TRADERS</h2>
+        <div class="company-sub">Koothattukulam | ERP V8.1</div>
+        <nav>
+            <button class="nav-btn active" onclick="nav('dashboard')">📊 Dashboard</button>
+            <button class="nav-btn hr-btn" onclick="nav('hr')">👨‍✈️ Fleet & HR</button>
+            <button class="nav-btn" onclick="nav('purchase')">➕ Add Stock</button>
+            <button class="nav-btn" onclick="nav('inventory')">📦 Inventory</button>
+            <button class="nav-btn expense-btn" onclick="nav('expenses')">💸 Expenses</button>
+            <button class="nav-btn" onclick="nav('loading')">🚚 Load Vehicle</button>
+            <button class="nav-btn" onclick="nav('settlement')">💰 Settlement</button>
+            <button class="nav-btn" onclick="nav('reports')">📈 Reports</button>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+            <div class="page-title" id="page-title">Dashboard</div>
+        </div>
+
+        <div class="scroll-area">
+            
+            <div id="dashboard" class="section active">
+                <div class="card-grid">
+                    <div class="stat-card">
+                        <h3 id="d-sales-today">₹0</h3>
+                        <p>Total Revenue</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="d-profit" style="color: var(--primary);">₹0</h3>
+                        <p>Net Profit</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="d-drivers">0</h3>
+                        <p>Active Drivers</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="hr" class="section">
+                <div class="panel">
+                    <h3>🚛 Add Vehicle</h3>
+                    <div class="input-row">
+                        <div class="input-group"><label>Reg No</label><input type="text" id="veh-reg" placeholder="KL-XX..."></div>
+                        <div class="input-group"><label>Model</label><input type="text" id="veh-model" placeholder="Tata Ace..."></div>
+                        <button class="btn btn-hr" onclick="addVehicle()">Add Vehicle</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="veh-table"><thead><th>Reg No</th><th>Model</th><th>Action</th></thead><tbody></tbody></table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>👨‍✈️ Add Driver</h3>
+                    <div class="input-row">
+                        <div class="input-group"><label>Name</label><input type="text" id="drv-name" placeholder="Name"></div>
+                        <div class="input-group"><label>Daily Salary (₹)</label><input type="number" id="drv-salary" placeholder="Amount"></div>
+                        <button class="btn btn-hr" onclick="addDriver()">Add Driver</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="drv-table"><thead><th>Name</th><th>Salary</th><th>Action</th></thead><tbody></tbody></table>
+                    </div>
+                </div>
+
+                <div class="panel" style="border-top: 4px solid var(--hr);">
+                    <h3>📅 Attendance (<span id="today-date"></span>)</h3>
+                    <div class="table-wrapper">
+                        <table id="att-table">
+                            <thead><tr><th>Driver</th><th>Mark Status</th><th>Due Salary</th></tr></thead>
+                            <tbody id="att-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="purchase" class="section">
+                <div class="panel" style="border-top: 4px solid var(--purchase);">
+                    <h3>➕ Add New Stock</h3>
+                    <div class="input-row">
+                        <div class="input-group"><label>Item Name</label><input type="text" id="pur-name"></div>
+                        <div class="input-group"><label>Category</label><select id="pur-cat"><option>Beverage</option><option>Stationery</option><option>Water</option></select></div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group"><label>Pcs per Pack</label><input type="number" id="pur-packsize" value="1"></div>
+                        <div class="input-group"><label>Price (Case)</label><input type="number" id="pur-price"></div>
+                    </div>
+                    <div class="input-row" style="background: #f1f8e9; padding: 10px; border-radius: 5px;">
+                        <div class="input-group"><label>Cases</label><input type="number" id="pur-case" placeholder="0"></div>
+                        <div class="input-group"><label>Pieces</label><input type="number" id="pur-piece" placeholder="0"></div>
+                        <button class="btn btn-purchase" onclick="addPurchase()">Add Stock</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="inventory" class="section">
+                <div class="panel">
+                    <h3>📦 Warehouse Stock</h3>
+                    <div class="table-wrapper">
+                        <table id="inv-table">
+                            <thead><th>Name</th><th>Pack</th><th>Stock</th><th>Price</th><th>Action</th></thead>
+                            <tbody id="inv-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="expenses" class="section">
+                <div class="panel" style="border-top: 4px solid var(--expense);">
+                    <h3>💸 Record Expense</h3>
+                    <div class="input-row">
+                        <div class="input-group"><label>Type</label><select id="exp-type"><option>Fuel</option><option>Bata</option><option>Maint</option><option>Other</option></select></div>
+                        <div class="input-group"><label>Vehicle</label><select id="exp-veh-select"></select></div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group"><label>Amount (₹)</label><input type="number" id="exp-amount"></div>
+                        <button class="btn btn-expense" onclick="addExpense()">Save Expense</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="exp-table"><thead><th>Date</th><th>Type</th><th>Vehicle</th><th>Amt</th></thead><tbody id="exp-body"></tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="section">
+                <div class="panel">
+                    <h3>🚚 Load Vehicle</h3>
+                    <div class="input-row">
+                        <div class="input-group"><label>Vehicle</label><select id="load-vehicle-select" onchange="handleVehicleChange(this.value)"></select></div>
+                        <div class="input-group"><label>Driver</label><select id="load-driver-select"></select></div>
+                    </div>
+                    <div class="input-row" style="background:#e3f2fd; padding:10px; border-radius:5px;">
+                        <div class="input-group"><label>Item</label><select id="load-item-select"></select></div>
+                        <div class="input-group"><label>Cases</label><input type="number" id="load-case" placeholder="0"></div>
+                        <div class="input-group"><label>Pieces</label><input type="number" id="load-piece" placeholder="0"></div>
+                        <button class="btn btn-primary" onclick="loadToVehicle()">Load</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3>Manifest: <span id="current-veh-label"></span></h3>
+                    <div class="table-wrapper">
+                        <table id="manifest-table"><thead><th>Item</th><th>Qty</th><th>Action</th></thead><tbody id="manifest-body"></tbody></table>
+                    </div>
+                    <br><button class="btn btn-print btn-full" onclick="printManifest()">Print Trip Sheet (A4)</button>
+                </div>
+            </div>
+
+            <div id="settlement" class="section">
+                <div class="panel">
+                    <h3>💰 Trip Settlement</h3>
+                    <div class="input-group"><label>Select Returning Vehicle</label><select id="settle-vehicle-select" onchange="renderSettlementTable()"></select></div>
+                </div>
+                <div class="panel" id="settle-panel" style="display:none">
+                    <div class="table-wrapper">
+                        <table id="settle-table"><thead><th>Item</th><th>Loaded</th><th>Sold</th><th>Action</th></thead><tbody id="settle-table-body"></tbody></table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reports" class="section">
+                <div class="panel">
+                    <h3>📈 Sales Report</h3>
+                    <div class="table-wrapper">
+                        <table id="report-table">
+                            <thead><th>Date</th><th>Veh</th><th>Item</th><th>Sold</th><th>Val</th></thead>
+                            <tbody id="report-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="print-area">
+        <div class="print-header-container">
+            <div class="print-logo-container">
+                <img src="logo.jpg" alt="Logo" class="print-logo" onerror="this.style.display='none'">
+            </div>
+            <div class="print-text-container">
+                <h1>KRISHNA TRADERS</h1>
+                <p>Krishna Arcade, Koothattukulam-Uzhavvor Road, Ernakulam</p>
+                <p><strong>Ph: 9846057960</strong></p>
+                <h2>TRIP SHEET / MANIFEST</h2>
+            </div>
+        </div>
+        
+        <div class="print-info">
+            <div>
+                <strong>Vehicle:</strong> <span id="p-veh"></span><br>
+                <strong>Driver:</strong> <span id="p-driver"></span>
+            </div>
+            <div>
+                <strong>Date:</strong> <span id="p-date"></span><br>
+                <strong>Trip ID:</strong> #<span id="p-id"></span>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Item Description</th>
+                    <th style="width: 25%; text-align: center;">Quantity Loaded</th>
+                    <th style="width: 25%; text-align: center;">Verify (Tick)</th>
+                </tr>
+            </thead>
+            <tbody id="p-tbody"></tbody>
+        </table>
+
+        <div class="footer-sig">
+            <div>
+                _______________________<br>
+                <strong>Store Keeper</strong>
+            </div>
+            <div>
+                _______________________<br>
+                <strong>Driver Signature</strong>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE ---
+        let vehicles = [{ id: 1, reg: 'KL-07-BW-1234', model: 'Tata Ace' }];
+        let drivers = [{ id: 1, name: 'Ramesh', rate: 800, daysPresent: 0 }];
+        let items = [{ id: 1, cat: 'Beverage', name: 'Coca Cola 2L', packSize: 9, totalPieces: 100, priceCase: 900 }];
+        let expenses = [];
+        let salesHistory = [];
+        let vehicleManifests = {}; 
+        
+        // Track the currently selected vehicle so it doesn't reset on refresh
+        let currentVehicleSelection = "";
+
+        // --- INIT ---
+        function init() {
+            vehicles.forEach(v => {
+                if(!vehicleManifests[v.reg]) vehicleManifests[v.reg] = [];
+            });
+            document.getElementById('today-date').innerText = new Date().toLocaleDateString();
+            
+            // Set default selection if exists
+            if(vehicles.length > 0) currentVehicleSelection = vehicles[0].reg;
+            
+            refreshAll();
+        }
+
+        // --- NAVIGATION ---
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+            document.querySelector('.overlay').classList.toggle('active');
+        }
+
+        function nav(id) {
+            document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+            
+            let btns = document.querySelectorAll('.nav-btn');
+            btns.forEach(b => { if(b.getAttribute('onclick').includes(id)) b.classList.add('active'); });
+
+            const titles = {
+                'dashboard': 'Dashboard', 'hr': 'Fleet & HR', 'purchase': 'Purchase Stock', 
+                'inventory': 'Inventory', 'expenses': 'Expenses', 'loading': 'Vehicle Loading', 
+                'settlement': 'Settlement', 'reports': 'Reports'
+            };
+            document.getElementById('page-title').innerText = titles[id];
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        function refreshAll() {
+            renderDropdowns();
+            renderHR();
+            renderInventory();
+            renderExpenses();
+            renderReports();
+            renderManifest(); // Renders based on currentVehicleSelection
+            updateDashboard();
+        }
+
+        // --- DROPDOWNS & STATE MANAGEMENT ---
+        function handleVehicleChange(val) {
+            currentVehicleSelection = val;
+            renderManifest();
+        }
+
+        function renderDropdowns() {
+            // Load Vehicle Select
+            let vOptions = vehicles.map(v => `<option value="${v.reg}">${v.reg}</option>`).join('');
+            
+            const loadSelect = document.getElementById('load-vehicle-select');
+            loadSelect.innerHTML = vOptions;
+            
+            // Restore selection
+            if(currentVehicleSelection) {
+                loadSelect.value = currentVehicleSelection;
+            } else if(vehicles.length > 0) {
+                currentVehicleSelection = vehicles[0].reg;
+                loadSelect.value = currentVehicleSelection;
+            }
+
+            // Other selects
+            document.getElementById('settle-vehicle-select').innerHTML = '<option value="">Select Vehicle</option>' + vOptions;
+            document.getElementById('exp-veh-select').innerHTML = '<option value="-">None</option>' + vOptions;
+            
+            let dOptions = drivers.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+            document.getElementById('load-driver-select').innerHTML = dOptions;
+
+            document.getElementById('load-item-select').innerHTML = items.map(i => `<option value="${i.id}">${i.name} (${formatQty(i.totalPieces, i.packSize)})</option>`).join('');
+        }
+
+        // --- HR FUNCTIONS ---
+        function addVehicle() {
+            let reg = document.getElementById('veh-reg').value;
+            let model = document.getElementById('veh-model').value;
+            if(reg && model) {
+                vehicles.push({ id: Date.now(), reg, model });
+                vehicleManifests[reg] = [];
+                document.getElementById('veh-reg').value = '';
+                document.getElementById('veh-model').value = '';
+                refreshAll();
+            }
+        }
+        function deleteVehicle(id) { vehicles = vehicles.filter(v => v.id !== id); refreshAll(); }
+
+        function addDriver() {
+            let name = document.getElementById('drv-name').value;
+            let rate = parseInt(document.getElementById('drv-salary').value);
+            if(name && rate) {
+                drivers.push({ id: Date.now(), name, rate, daysPresent: 0 });
+                document.getElementById('drv-name').value = '';
+                document.getElementById('drv-salary').value = '';
+                refreshAll();
+            }
+        }
+        function deleteDriver(id) { drivers = drivers.filter(d => d.id !== id); refreshAll(); }
+        
+        function toggleAttendance(id) {
+            let d = drivers.find(x => x.id === id);
+            d.daysPresent++;
+            refreshAll();
+        }
+
+        function renderHR() {
+            document.getElementById('veh-table').querySelector('tbody').innerHTML = vehicles.map(v => 
+                `<tr><td>${v.reg}</td><td>${v.model}</td><td><button class="btn btn-danger btn-sm" onclick="deleteVehicle(${v.id})">X</button></td></tr>`
+            ).join('');
+
+            document.getElementById('drv-table').querySelector('tbody').innerHTML = drivers.map(d => 
+                `<tr><td>${d.name}</td><td>₹${d.rate}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDriver(${d.id})">X</button></td></tr>`
+            ).join('');
+
+            // Attendance Buttons
+            document.getElementById('att-body').innerHTML = drivers.map(d => `
+                <tr>
+                    <td>${d.name}</td>
+                    <td><div class="att-btn ${d.daysPresent > 0 ? 'present' : 'absent'}" onclick="toggleAttendance(${d.id})">
+                        ${d.daysPresent > 0 ? 'Present ✅' : 'Mark Present'}
+                    </div></td>
+                    <td>₹${(d.rate * d.daysPresent).toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- LOADING & MANIFEST ---
+        function formatQty(p, pack) {
+            let c = Math.floor(p / pack);
+            let l = p % pack;
+            return `${c}C ${l}P`;
+        }
+
+        function loadToVehicle() {
+            // Use the current selection state, not just DOM value, to be safe
+            let veh = document.getElementById('load-vehicle-select').value;
+            if(!veh) return;
+
+            let itemId = parseInt(document.getElementById('load-item-select').value);
+            let c = parseInt(document.getElementById('load-case').value)||0;
+            let p = parseInt(document.getElementById('load-piece').value)||0;
+            
+            let item = items.find(i=>i.id===itemId);
+            let req = (c * item.packSize) + p;
+            
+            if(req === 0) return;
+            if(req > item.totalPieces) { alert("Low Stock"); return; }
+            
+            // Deduct
+            item.totalPieces -= req;
+            
+            if(!vehicleManifests[veh]) vehicleManifests[veh] = [];
+            let existing = vehicleManifests[veh].find(x=>x.id===itemId);
+            
+            if(existing) existing.totalPieces += req;
+            else vehicleManifests[veh].push({...item, totalPieces: req});
+            
+            // Update Inputs
+            document.getElementById('load-case').value = '';
+            document.getElementById('load-piece').value = '';
+            
+            refreshAll();
+        }
+
+        function renderManifest() {
+            let veh = currentVehicleSelection;
+            document.getElementById('current-veh-label').innerText = veh || "None";
+            
+            let list = vehicleManifests[veh] || [];
+            document.getElementById('manifest-body').innerHTML = list.map(i => 
+                `<tr><td>${i.name}</td><td>${formatQty(i.totalPieces, i.packSize)}</td><td><button class="btn btn-danger btn-sm" onclick="unload('${veh}',${i.id})">X</button></td></tr>`
+            ).join('');
+        }
+
+        function unload(veh, id) {
+            let list = vehicleManifests[veh];
+            let idx = list.findIndex(x=>x.id===id);
+            let item = items.find(x=>x.id===id);
+            item.totalPieces += list[idx].totalPieces;
+            list.splice(idx,1);
+            refreshAll();
+        }
+
+        // --- OTHER FUNCTIONS ---
+        function addPurchase() {
+            let name = document.getElementById('pur-name').value;
+            let pack = parseInt(document.getElementById('pur-packsize').value);
+            let cases = parseInt(document.getElementById('pur-case').value)||0;
+            let pcs = parseInt(document.getElementById('pur-piece').value)||0;
+            let price = parseInt(document.getElementById('pur-price').value);
+            if(!name) return;
+            let total = (cases * pack) + pcs;
+            items.push({ id: Date.now(), cat: document.getElementById('pur-cat').value, name, packSize: pack, totalPieces: total, priceCase: price });
+            refreshAll();
+            alert("Stock Added");
+        }
+
+        function renderInventory() {
+            document.getElementById('inv-body').innerHTML = items.map(i => 
+                `<tr><td>${i.name}</td><td>${i.packSize}</td><td>${formatQty(i.totalPieces, i.packSize)}</td><td>₹${i.priceCase}</td><td><button class="btn btn-danger btn-sm" onclick="items=items.filter(x=>x.id!=${i.id});refreshAll()">X</button></td></tr>`
+            ).join('');
+        }
+
+        function renderSettlementTable() {
+            let veh = document.getElementById('settle-vehicle-select').value;
+            let panel = document.getElementById('settle-panel');
+            let list = vehicleManifests[veh] || [];
+            if(!veh || list.length === 0) { panel.style.display='none'; return; }
+            panel.style.display='block';
+            document.getElementById('settle-table-body').innerHTML = list.map(i => `
+                <tr>
+                    <td>${i.name}<br><small style="color:blue">${formatQty(i.totalPieces, i.packSize)}</small></td>
+                    <td></td>
+                    <td><input id="s-c-${i.id}" placeholder="Cs" style="width:40px; padding:5px;"> <input id="s-p-${i.id}" placeholder="Pc" style="width:40px; padding:5px;"></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="sell('${veh}',${i.id})">Ok</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function sell(veh, id) {
+            let list = vehicleManifests[veh];
+            let idx = list.findIndex(x=>x.id===id);
+            let item = list[idx];
+            let c = parseInt(document.getElementById(`s-c-${id}`).value)||0;
+            let p = parseInt(document.getElementById(`s-p-${id}`).value)||0;
+            let soldQty = (c*item.packSize)+p;
+            if(soldQty > item.totalPieces) { alert("Err: Sold > Loaded"); return; }
+            let val = soldQty * (item.priceCase / item.packSize);
+            salesHistory.push({ date: new Date().toLocaleDateString(), veh, item: item.name, qty: `${c}C ${p}P`, value: val });
+            item.totalPieces -= soldQty;
+            if(item.totalPieces<=0) list.splice(idx,1);
+            refreshAll();
+            renderSettlementTable();
+        }
+
+        function addExpense() {
+            let type = document.getElementById('exp-type').value;
+            let veh = document.getElementById('exp-veh-select').value;
+            let amt = parseInt(document.getElementById('exp-amount').value);
+            if(amt) { expenses.push({date: new Date().toLocaleDateString(), type, veh, amount: amt}); refreshAll(); }
+        }
+        function renderExpenses() { document.getElementById('exp-body').innerHTML = expenses.map(e => `<tr><td>${e.date}</td><td>${e.type}</td><td>${e.veh}</td><td>${e.amount}</td></tr>`).join(''); }
+        function renderReports() { document.getElementById('report-body').innerHTML = salesHistory.map(s => `<tr><td>${s.date}</td><td>${s.veh}</td><td>${s.item}</td><td>${s.qty}</td><td>${Math.floor(s.value)}</td></tr>`).join(''); }
+
+        function updateDashboard() {
+            let rev = salesHistory.reduce((a,b)=>a+b.value,0);
+            let exp = expenses.reduce((a,b)=>a+b.amount,0);
+            document.getElementById('d-sales-today').innerText = "₹"+Math.floor(rev);
+            document.getElementById('d-profit').innerText = "₹"+Math.floor(rev-exp);
+        }
+
+        function printManifest() {
+            let veh = document.getElementById('load-vehicle-select').value;
+            let drv = document.getElementById('load-driver-select').value;
+            
+            if(!veh || !vehicleManifests[veh] || vehicleManifests[veh].length === 0) {
+                alert("Nothing loaded to print!");
+                return;
+            }
+
+            document.getElementById('p-veh').innerText = veh;
+            document.getElementById('p-driver').innerText = drv;
+            document.getElementById('p-date').innerText = new Date().toLocaleString();
+            document.getElementById('p-id').innerText = Math.floor(Math.random() * 10000); // Random Trip ID
+
+            let list = vehicleManifests[veh];
+            document.getElementById('p-tbody').innerHTML = list.map(i => `
+                <tr>
+                    <td>${i.name}</td>
+                    <td style="text-align: center; font-weight: bold;">${formatQty(i.totalPieces, i.packSize)}</td>
+                    <td></td>
+                </tr>
+            `).join('');
+            
+            window.print();
+        }
+
+        // START
+        init();
+    </script>
+</body>
+</html>
