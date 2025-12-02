@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Krishna Traders ERP - Persistent V9</title>
+    <title>Krishna Traders ERP - V10 (Edit Stock)</title>
     <style>
         :root {
             --primary: #2e7d32; /* Green */
@@ -61,6 +61,17 @@
         }
         .overlay.active { display: block; }
 
+        /* --- EDIT MODAL (NEW) --- */
+        .edit-modal {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; width: 90%; max-width: 400px; padding: 20px;
+            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 1001; display: none;
+        }
+        .edit-modal.active { display: block; }
+        .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--dark); border-bottom: 1px solid #eee; padding-bottom: 10px;}
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        
         /* --- MAIN CONTENT --- */
         .main-content { 
             flex: 1; display: flex; flex-direction: column; height: 100%; position: relative;
@@ -103,8 +114,6 @@
         .btn-danger { background: var(--accent); }
         .btn-print { background: #455a64; }
         .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
-        
-        /* Reset Data Button */
         .btn-reset { background: #cfd8dc; color: #333; margin-top: 20px; width: 100%; }
 
         /* --- TABLES --- */
@@ -160,21 +169,13 @@
                 width: 100%; 
                 padding: 0;
             }
-
-            .print-header-container {
-                display: flex;
-                align-items: center;
-                border-bottom: 2px solid #000;
-                padding-bottom: 20px;
-                margin-bottom: 30px;
-            }
+            .print-header-container { display: flex; align-items: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
             .print-logo-container { width: 120px; flex-shrink: 0; }
             .print-logo { width: 100%; height: auto; object-fit: contain; }
             .print-text-container { flex: 1; text-align: center; padding-left: 20px; }
             .print-text-container h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
             .print-text-container p { margin: 5px 0; font-size: 14px; }
             .print-text-container h2 { margin: 15px 0 0 0; font-size: 18px; text-decoration: underline; }
-
             .print-info { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; }
             table { width: 100%; border: 1px solid #000; border-collapse: collapse; font-size: 12px; }
             th, td { border: 1px solid #000; padding: 8px; }
@@ -185,11 +186,33 @@
 </head>
 <body>
 
-    <div class="overlay" onclick="toggleSidebar()"></div>
+    <div class="overlay" onclick="toggleSidebar(); closeEditModal();"></div>
+
+    <div class="edit-modal" id="editModal">
+        <div class="modal-header">Edit Stock Details</div>
+        <input type="hidden" id="edit-id">
+        <div class="input-group" style="margin-bottom:10px;">
+            <label>Item Name</label>
+            <input type="text" id="edit-name">
+        </div>
+        <div class="input-group" style="margin-bottom:10px;">
+            <label>Price per Case (₹)</label>
+            <input type="number" id="edit-price">
+        </div>
+        <div class="input-group" style="margin-bottom:10px;">
+            <label>Stock Correction (Total Pieces)</label>
+            <input type="number" id="edit-stock">
+            <small style="color:#666">Enter total pieces (e.g., 24 for 2 cases of 12)</small>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-primary" style="flex:1" onclick="saveEdit()">Save Changes</button>
+            <button class="btn btn-danger" style="flex:1; background:#999;" onclick="closeEditModal()">Cancel</button>
+        </div>
+    </div>
 
     <div class="sidebar" id="sidebar">
         <h2>KRISHNA TRADERS</h2>
-        <div class="company-sub">Koothattukulam | ERP V9</div>
+        <div class="company-sub">Koothattukulam | ERP V10</div>
         <nav>
             <button class="nav-btn active" onclick="nav('dashboard')">📊 Dashboard</button>
             <button class="nav-btn hr-btn" onclick="nav('hr')">👨‍✈️ Fleet & HR</button>
@@ -410,252 +433,123 @@
     </div>
 
     <script>
-        // --- GLOBAL STATE ---
-        // Initial Dummy Data (Only used if nothing is saved in localStorage)
-        const defaultVehicles = [{ id: 1, reg: 'KL-07-BW-1234', model: 'Tata Ace' }];
-        const defaultDrivers = [{ id: 1, name: 'Ramesh', rate: 800, daysPresent: 0 }];
-        const defaultItems = [{ id: 1, cat: 'Beverage', name: 'Coca Cola 2L', packSize: 9, totalPieces: 100, priceCase: 900 }];
-
+        // --- DATA ---
         let vehicles = [];
         let drivers = [];
         let items = [];
         let expenses = [];
         let salesHistory = [];
         let vehicleManifests = {}; 
-        
         let currentVehicleSelection = "";
 
-        // --- LOCAL STORAGE FUNCTIONS ---
+        // --- LOCAL STORAGE ---
         function saveData() {
-            const data = {
-                vehicles, drivers, items, expenses, salesHistory, vehicleManifests
-            };
-            localStorage.setItem('krishnaErpData', JSON.stringify(data));
+            localStorage.setItem('krishnaErpData', JSON.stringify({ vehicles, drivers, items, expenses, salesHistory, vehicleManifests }));
         }
 
         function loadData() {
             const saved = localStorage.getItem('krishnaErpData');
             if(saved) {
-                const parsed = JSON.parse(saved);
-                vehicles = parsed.vehicles || [];
-                drivers = parsed.drivers || [];
-                items = parsed.items || [];
-                expenses = parsed.expenses || [];
-                salesHistory = parsed.salesHistory || [];
-                vehicleManifests = parsed.vehicleManifests || {};
+                const p = JSON.parse(saved);
+                vehicles = p.vehicles || [];
+                drivers = p.drivers || [];
+                items = p.items || [];
+                expenses = p.expenses || [];
+                salesHistory = p.salesHistory || [];
+                vehicleManifests = p.vehicleManifests || {};
             } else {
-                // First time load
-                vehicles = [...defaultVehicles];
-                drivers = [...defaultDrivers];
-                items = [...defaultItems];
-                expenses = [];
-                salesHistory = [];
+                // Defaults
+                vehicles = [{ id: 1, reg: 'KL-07-BW-1234', model: 'Tata Ace' }];
+                drivers = [{ id: 1, name: 'Ramesh', rate: 800, daysPresent: 0 }];
+                items = [{ id: 1, cat: 'Beverage', name: 'Coca Cola 2L', packSize: 9, totalPieces: 100, priceCase: 900 }];
                 vehicleManifests = {};
             }
         }
 
         function hardReset() {
-            if(confirm("WARNING: This will delete ALL saved data (Vehicles, Sales, Stock). Are you sure?")) {
-                localStorage.removeItem('krishnaErpData');
-                location.reload();
-            }
+            if(confirm("Delete ALL data?")) { localStorage.removeItem('krishnaErpData'); location.reload(); }
         }
 
         // --- INIT ---
         function init() {
-            loadData(); // LOAD FROM STORAGE
-            
-            // Ensure manifest arrays exist
-            vehicles.forEach(v => {
-                if(!vehicleManifests[v.reg]) vehicleManifests[v.reg] = [];
-            });
-            
+            loadData();
+            vehicles.forEach(v => { if(!vehicleManifests[v.reg]) vehicleManifests[v.reg] = []; });
             document.getElementById('today-date').innerText = new Date().toLocaleDateString();
-            
             if(vehicles.length > 0) currentVehicleSelection = vehicles[0].reg;
-            
             refreshAll();
         }
 
-        // --- NAVIGATION ---
+        // --- UI ---
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('active');
             document.querySelector('.overlay').classList.toggle('active');
+        }
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+            document.querySelector('.overlay').classList.remove('active');
         }
 
         function nav(id) {
             document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-            
             let btns = document.querySelectorAll('.nav-btn');
             btns.forEach(b => { if(b.getAttribute('onclick').includes(id)) b.classList.add('active'); });
-
-            const titles = {
-                'dashboard': 'Dashboard', 'hr': 'Fleet & HR', 'purchase': 'Purchase Stock', 
-                'inventory': 'Inventory', 'expenses': 'Expenses', 'loading': 'Vehicle Loading', 
-                'settlement': 'Settlement', 'reports': 'Reports'
-            };
+            const titles = {'dashboard': 'Dashboard', 'hr': 'Fleet & HR', 'purchase': 'Purchase Stock', 'inventory': 'Inventory', 'expenses': 'Expenses', 'loading': 'Vehicle Loading', 'settlement': 'Settlement', 'reports': 'Reports'};
             document.getElementById('page-title').innerText = titles[id];
             if(window.innerWidth <= 768) toggleSidebar();
         }
 
         function refreshAll() {
-            renderDropdowns();
-            renderHR();
-            renderInventory();
-            renderExpenses();
-            renderReports();
-            renderManifest();
-            updateDashboard();
-            saveData(); // AUTO SAVE ON EVERY REFRESH CALL
+            renderDropdowns(); renderHR(); renderInventory(); renderExpenses(); renderReports(); renderManifest(); updateDashboard(); saveData();
         }
 
-        // --- DROPDOWNS & STATE MANAGEMENT ---
-        function handleVehicleChange(val) {
-            currentVehicleSelection = val;
-            renderManifest();
-        }
+        function handleVehicleChange(val) { currentVehicleSelection = val; renderManifest(); }
 
         function renderDropdowns() {
             let vOptions = vehicles.map(v => `<option value="${v.reg}">${v.reg}</option>`).join('');
-            
-            const loadSelect = document.getElementById('load-vehicle-select');
-            loadSelect.innerHTML = vOptions;
-            
-            if(currentVehicleSelection) {
-                loadSelect.value = currentVehicleSelection;
-            } else if(vehicles.length > 0) {
-                currentVehicleSelection = vehicles[0].reg;
-                loadSelect.value = currentVehicleSelection;
-            }
-
+            document.getElementById('load-vehicle-select').innerHTML = vOptions;
+            if(currentVehicleSelection) document.getElementById('load-vehicle-select').value = currentVehicleSelection;
             document.getElementById('settle-vehicle-select').innerHTML = '<option value="">Select Vehicle</option>' + vOptions;
             document.getElementById('exp-veh-select').innerHTML = '<option value="-">None</option>' + vOptions;
-            
-            let dOptions = drivers.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
-            document.getElementById('load-driver-select').innerHTML = dOptions;
-
+            document.getElementById('load-driver-select').innerHTML = drivers.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
             document.getElementById('load-item-select').innerHTML = items.map(i => `<option value="${i.id}">${i.name} (${formatQty(i.totalPieces, i.packSize)})</option>`).join('');
         }
 
-        // --- HR FUNCTIONS ---
-        function addVehicle() {
-            let reg = document.getElementById('veh-reg').value;
-            let model = document.getElementById('veh-model').value;
-            if(reg && model) {
-                vehicles.push({ id: Date.now(), reg, model });
-                vehicleManifests[reg] = [];
-                document.getElementById('veh-reg').value = '';
-                document.getElementById('veh-model').value = '';
+        // --- EDIT FUNCTIONS ---
+        function openEditModal(id) {
+            let item = items.find(i => i.id === id);
+            if(!item) return;
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('edit-name').value = item.name;
+            document.getElementById('edit-price').value = item.priceCase;
+            document.getElementById('edit-stock').value = item.totalPieces;
+            
+            document.getElementById('editModal').classList.add('active');
+            document.querySelector('.overlay').classList.add('active');
+        }
+
+        function saveEdit() {
+            let id = parseInt(document.getElementById('edit-id').value);
+            let name = document.getElementById('edit-name').value;
+            let price = parseInt(document.getElementById('edit-price').value);
+            let stock = parseInt(document.getElementById('edit-stock').value);
+
+            let item = items.find(i => i.id === id);
+            if(item) {
+                item.name = name;
+                item.priceCase = price;
+                item.totalPieces = stock;
                 refreshAll();
-            }
-        }
-        function deleteVehicle(id) { 
-            if(confirm("Delete this vehicle?")) {
-                vehicles = vehicles.filter(v => v.id !== id); 
-                refreshAll(); 
+                closeEditModal();
             }
         }
 
-        function addDriver() {
-            let name = document.getElementById('drv-name').value;
-            let rate = parseInt(document.getElementById('drv-salary').value);
-            if(name && rate) {
-                drivers.push({ id: Date.now(), name, rate, daysPresent: 0 });
-                document.getElementById('drv-name').value = '';
-                document.getElementById('drv-salary').value = '';
-                refreshAll();
-            }
-        }
-        function deleteDriver(id) { 
-            if(confirm("Delete this driver?")) {
-                drivers = drivers.filter(d => d.id !== id); 
-                refreshAll(); 
-            }
-        }
-        
-        function toggleAttendance(id) {
-            let d = drivers.find(x => x.id === id);
-            d.daysPresent++;
-            refreshAll();
-        }
-
-        function renderHR() {
-            document.getElementById('veh-table').querySelector('tbody').innerHTML = vehicles.map(v => 
-                `<tr><td>${v.reg}</td><td>${v.model}</td><td><button class="btn btn-danger btn-sm" onclick="deleteVehicle(${v.id})">X</button></td></tr>`
-            ).join('');
-
-            document.getElementById('drv-table').querySelector('tbody').innerHTML = drivers.map(d => 
-                `<tr><td>${d.name}</td><td>₹${d.rate}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDriver(${d.id})">X</button></td></tr>`
-            ).join('');
-
-            document.getElementById('att-body').innerHTML = drivers.map(d => `
-                <tr>
-                    <td>${d.name}</td>
-                    <td><div class="att-btn ${d.daysPresent > 0 ? 'present' : 'absent'}" onclick="toggleAttendance(${d.id})">
-                        ${d.daysPresent > 0 ? 'Present ✅' : 'Mark Present'}
-                    </div></td>
-                    <td>₹${(d.rate * d.daysPresent).toLocaleString()}</td>
-                </tr>
-            `).join('');
-        }
-
-        // --- LOADING & MANIFEST ---
+        // --- CORE FUNCTIONS ---
         function formatQty(p, pack) {
-            let c = Math.floor(p / pack);
-            let l = p % pack;
-            return `${c}C ${l}P`;
+            let c = Math.floor(p / pack); let l = p % pack; return `${c}C ${l}P`;
         }
 
-        function loadToVehicle() {
-            let veh = document.getElementById('load-vehicle-select').value;
-            if(!veh) return;
-
-            let itemId = parseInt(document.getElementById('load-item-select').value);
-            let c = parseInt(document.getElementById('load-case').value)||0;
-            let p = parseInt(document.getElementById('load-piece').value)||0;
-            
-            let item = items.find(i=>i.id===itemId);
-            let req = (c * item.packSize) + p;
-            
-            if(req === 0) return;
-            if(req > item.totalPieces) { alert("Low Stock"); return; }
-            
-            item.totalPieces -= req;
-            
-            if(!vehicleManifests[veh]) vehicleManifests[veh] = [];
-            let existing = vehicleManifests[veh].find(x=>x.id===itemId);
-            
-            if(existing) existing.totalPieces += req;
-            else vehicleManifests[veh].push({...item, totalPieces: req});
-            
-            document.getElementById('load-case').value = '';
-            document.getElementById('load-piece').value = '';
-            
-            refreshAll();
-        }
-
-        function renderManifest() {
-            let veh = currentVehicleSelection;
-            document.getElementById('current-veh-label').innerText = veh || "None";
-            
-            let list = vehicleManifests[veh] || [];
-            document.getElementById('manifest-body').innerHTML = list.map(i => 
-                `<tr><td>${i.name}</td><td>${formatQty(i.totalPieces, i.packSize)}</td><td><button class="btn btn-danger btn-sm" onclick="unload('${veh}',${i.id})">X</button></td></tr>`
-            ).join('');
-        }
-
-        function unload(veh, id) {
-            let list = vehicleManifests[veh];
-            let idx = list.findIndex(x=>x.id===id);
-            let item = items.find(x=>x.id===id);
-            item.totalPieces += list[idx].totalPieces;
-            list.splice(idx,1);
-            refreshAll();
-        }
-
-        // --- OTHER FUNCTIONS ---
         function addPurchase() {
             let name = document.getElementById('pur-name').value;
             let pack = parseInt(document.getElementById('pur-packsize').value);
@@ -665,14 +559,62 @@
             if(!name) return;
             let total = (cases * pack) + pcs;
             items.push({ id: Date.now(), cat: document.getElementById('pur-cat').value, name, packSize: pack, totalPieces: total, priceCase: price });
-            refreshAll();
-            alert("Stock Added");
+            refreshAll(); alert("Stock Added");
         }
 
         function renderInventory() {
             document.getElementById('inv-body').innerHTML = items.map(i => 
-                `<tr><td>${i.name}</td><td>${i.packSize}</td><td>${formatQty(i.totalPieces, i.packSize)}</td><td>₹${i.priceCase}</td><td><button class="btn btn-danger btn-sm" onclick="items=items.filter(x=>x.id!=${i.id});refreshAll()">X</button></td></tr>`
+                `<tr>
+                    <td>${i.name}</td>
+                    <td>${i.packSize}</td>
+                    <td>${formatQty(i.totalPieces, i.packSize)}</td>
+                    <td>₹${i.priceCase}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="openEditModal(${i.id})">Edit ✏️</button>
+                        <button class="btn btn-danger btn-sm" onclick="if(confirm('Delete?')) { items=items.filter(x=>x.id!=${i.id}); refreshAll(); }">X</button>
+                    </td>
+                </tr>`
             ).join('');
+        }
+
+        function addVehicle() {
+            let reg = document.getElementById('veh-reg').value; let model = document.getElementById('veh-model').value;
+            if(reg && model) { vehicles.push({ id: Date.now(), reg, model }); vehicleManifests[reg] = []; refreshAll(); }
+        }
+        function deleteVehicle(id) { if(confirm("Delete?")) { vehicles = vehicles.filter(v => v.id !== id); refreshAll(); } }
+        function addDriver() {
+            let name = document.getElementById('drv-name').value; let rate = parseInt(document.getElementById('drv-salary').value);
+            if(name && rate) { drivers.push({ id: Date.now(), name, rate, daysPresent: 0 }); refreshAll(); }
+        }
+        function deleteDriver(id) { if(confirm("Delete?")) { drivers = drivers.filter(d => d.id !== id); refreshAll(); } }
+        function renderHR() {
+            document.getElementById('veh-table').querySelector('tbody').innerHTML = vehicles.map(v => `<tr><td>${v.reg}</td><td>${v.model}</td><td><button class="btn btn-danger btn-sm" onclick="deleteVehicle(${v.id})">X</button></td></tr>`).join('');
+            document.getElementById('drv-table').querySelector('tbody').innerHTML = drivers.map(d => `<tr><td>${d.name}</td><td>₹${d.rate}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDriver(${d.id})">X</button></td></tr>`).join('');
+            document.getElementById('att-body').innerHTML = drivers.map(d => `<tr><td>${d.name}</td><td><div class="att-btn ${d.daysPresent>0?'present':'absent'}" onclick="let dr=drivers.find(x=>x.id==${d.id}); dr.daysPresent++; refreshAll();">${d.daysPresent>0?'Present ✅':'Mark'}</div></td><td>₹${(d.rate*d.daysPresent).toLocaleString()}</td></tr>`).join('');
+        }
+
+        function loadToVehicle() {
+            let veh = document.getElementById('load-vehicle-select').value;
+            if(!veh) return;
+            let itemId = parseInt(document.getElementById('load-item-select').value);
+            let c = parseInt(document.getElementById('load-case').value)||0;
+            let p = parseInt(document.getElementById('load-piece').value)||0;
+            let item = items.find(i=>i.id===itemId);
+            let req = (c * item.packSize) + p;
+            if(req===0) return;
+            if(req > item.totalPieces) { alert("Low Stock"); return; }
+            item.totalPieces -= req;
+            if(!vehicleManifests[veh]) vehicleManifests[veh] = [];
+            let existing = vehicleManifests[veh].find(x=>x.id===itemId);
+            if(existing) existing.totalPieces += req; else vehicleManifests[veh].push({...item, totalPieces: req});
+            document.getElementById('load-case').value = ''; document.getElementById('load-piece').value = ''; refreshAll();
+        }
+
+        function renderManifest() {
+            let veh = currentVehicleSelection;
+            document.getElementById('current-veh-label').innerText = veh || "None";
+            let list = vehicleManifests[veh] || [];
+            document.getElementById('manifest-body').innerHTML = list.map(i => `<tr><td>${i.name}</td><td>${formatQty(i.totalPieces, i.packSize)}</td><td><button class="btn btn-danger btn-sm" onclick="let lst=vehicleManifests['${veh}']; let idx=lst.findIndex(x=>x.id==${i.id}); let itm=items.find(x=>x.id==${i.id}); itm.totalPieces+=lst[idx].totalPieces; lst.splice(idx,1); refreshAll();">X</button></td></tr>`).join('');
         }
 
         function renderSettlementTable() {
@@ -681,71 +623,25 @@
             let list = vehicleManifests[veh] || [];
             if(!veh || list.length === 0) { panel.style.display='none'; return; }
             panel.style.display='block';
-            document.getElementById('settle-table-body').innerHTML = list.map(i => `
-                <tr>
-                    <td>${i.name}<br><small style="color:blue">${formatQty(i.totalPieces, i.packSize)}</small></td>
-                    <td></td>
-                    <td><input id="s-c-${i.id}" placeholder="Cs" style="width:40px; padding:5px;"> <input id="s-p-${i.id}" placeholder="Pc" style="width:40px; padding:5px;"></td>
-                    <td><button class="btn btn-primary btn-sm" onclick="sell('${veh}',${i.id})">Ok</button></td>
-                </tr>
-            `).join('');
+            document.getElementById('settle-table-body').innerHTML = list.map(i => `<tr><td>${i.name}<br><small style="color:blue">${formatQty(i.totalPieces, i.packSize)}</small></td><td></td><td><input id="s-c-${i.id}" placeholder="Cs" style="width:40px; padding:5px;"> <input id="s-p-${i.id}" placeholder="Pc" style="width:40px; padding:5px;"></td><td><button class="btn btn-primary btn-sm" onclick="let lst=vehicleManifests['${veh}']; let idx=lst.findIndex(x=>x.id==${i.id}); let itm=lst[idx]; let c=parseInt(document.getElementById('s-c-${i.id}').value)||0; let p=parseInt(document.getElementById('s-p-${i.id}').value)||0; let sold=(c*itm.packSize)+p; if(sold>itm.totalPieces){alert('Err');return;} let val=sold*(itm.priceCase/itm.packSize); salesHistory.push({date:new Date().toLocaleDateString(), veh:'${veh}', item:itm.name, qty:c+'C '+p+'P', value:val}); itm.totalPieces-=sold; if(itm.totalPieces<=0) lst.splice(idx,1); refreshAll(); renderSettlementTable();">Ok</button></td></tr>`).join('');
         }
 
-        function sell(veh, id) {
-            let list = vehicleManifests[veh];
-            let idx = list.findIndex(x=>x.id===id);
-            let item = list[idx];
-            let c = parseInt(document.getElementById(`s-c-${id}`).value)||0;
-            let p = parseInt(document.getElementById(`s-p-${id}`).value)||0;
-            let soldQty = (c*item.packSize)+p;
-            if(soldQty > item.totalPieces) { alert("Err: Sold > Loaded"); return; }
-            let val = soldQty * (item.priceCase / item.packSize);
-            salesHistory.push({ date: new Date().toLocaleDateString(), veh, item: item.name, qty: `${c}C ${p}P`, value: val });
-            item.totalPieces -= soldQty;
-            if(item.totalPieces<=0) list.splice(idx,1);
-            refreshAll();
-            renderSettlementTable();
-        }
-
-        function addExpense() {
-            let type = document.getElementById('exp-type').value;
-            let veh = document.getElementById('exp-veh-select').value;
-            let amt = parseInt(document.getElementById('exp-amount').value);
-            if(amt) { expenses.push({date: new Date().toLocaleDateString(), type, veh, amount: amt}); refreshAll(); }
-        }
+        function addExpense() { let t=document.getElementById('exp-type').value; let v=document.getElementById('exp-veh-select').value; let a=parseInt(document.getElementById('exp-amount').value); if(a) { expenses.push({date:new Date().toLocaleDateString(), type:t, veh:v, amount:a}); refreshAll(); } }
         function renderExpenses() { document.getElementById('exp-body').innerHTML = expenses.map(e => `<tr><td>${e.date}</td><td>${e.type}</td><td>${e.veh}</td><td>${e.amount}</td></tr>`).join(''); }
         function renderReports() { document.getElementById('report-body').innerHTML = salesHistory.map(s => `<tr><td>${s.date}</td><td>${s.veh}</td><td>${s.item}</td><td>${s.qty}</td><td>${Math.floor(s.value)}</td></tr>`).join(''); }
-
-        function updateDashboard() {
-            let rev = salesHistory.reduce((a,b)=>a+b.value,0);
-            let exp = expenses.reduce((a,b)=>a+b.amount,0);
-            document.getElementById('d-sales-today').innerText = "₹"+Math.floor(rev);
-            document.getElementById('d-profit').innerText = "₹"+Math.floor(rev-exp);
+        function updateDashboard() { 
+            let rev = salesHistory.reduce((a,b)=>a+b.value,0); let exp = expenses.reduce((a,b)=>a+b.amount,0);
+            document.getElementById('d-sales-today').innerText = "₹"+Math.floor(rev); document.getElementById('d-profit').innerText = "₹"+Math.floor(rev-exp);
         }
 
         function printManifest() {
             let veh = document.getElementById('load-vehicle-select').value;
-            let drv = document.getElementById('load-driver-select').value;
-            
-            if(!veh || !vehicleManifests[veh] || vehicleManifests[veh].length === 0) {
-                alert("Nothing loaded to print!");
-                return;
-            }
-
+            if(!veh || !vehicleManifests[veh] || vehicleManifests[veh].length === 0) { alert("Empty!"); return; }
             document.getElementById('p-veh').innerText = veh;
-            document.getElementById('p-driver').innerText = drv;
+            document.getElementById('p-driver').innerText = document.getElementById('load-driver-select').value;
             document.getElementById('p-date').innerText = new Date().toLocaleString();
-            document.getElementById('p-id').innerText = Math.floor(Math.random() * 10000);
-
-            let list = vehicleManifests[veh];
-            document.getElementById('p-tbody').innerHTML = list.map(i => `
-                <tr>
-                    <td>${i.name}</td>
-                    <td style="text-align: center; font-weight: bold;">${formatQty(i.totalPieces, i.packSize)}</td>
-                    <td></td>
-                </tr>
-            `).join('');
-            
+            document.getElementById('p-id').innerText = Math.floor(Math.random()*10000);
+            document.getElementById('p-tbody').innerHTML = vehicleManifests[veh].map(i => `<tr><td>${i.name}</td><td style="text-align:center;font-weight:bold;">${formatQty(i.totalPieces, i.packSize)}</td><td></td></tr>`).join('');
             window.print();
         }
 
